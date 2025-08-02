@@ -1,19 +1,13 @@
-import asyncio
-
-async def navigate_to_category(page, category_name):
-    """Hover over Products dropdown and click a category."""
-    print("[INFO] Hovering over Products dropdown...")
-    await page.wait_for_selector("div.nav-link.active", timeout=15000)
-    await page.hover("div.nav-link.active")
-
-    print(f"[INFO] Clicking {category_name} category...")
-    await page.wait_for_selector(f"li.dropdown-item div.products-menu-item:has-text('{category_name}')", timeout=15000)
-    await page.click(f"li.dropdown-item div.products-menu-item:has-text('{category_name}')")
+async def go_to_category_url(page, category_url):
+    """Navigate directly to category URL after login."""
+    print(f"[INFO] Navigating to category URL: {category_url}")
+    await page.goto(category_url, wait_until="domcontentloaded")
+    await page.wait_for_selector("div.catalog-cards-wrapper div.product-card-container", timeout=15000)
 
 
 async def collect_skus(page):
-    """Collect all product SKUs from the category page."""
-    print("[INFO] Collecting product SKUs...")
+    """Collect all product SKUs from the current category page."""
+    print("[INFO] Collecting product SKUs from category...")
     await page.wait_for_selector("div.catalog-cards-wrapper div.product-card-container", timeout=15000)
 
     elements = await page.query_selector_all("div.catalog-cards-wrapper div.product-card-container")

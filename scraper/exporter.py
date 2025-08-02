@@ -7,7 +7,7 @@ def export_to_csv(data, filename="products.csv"):
         return
 
     with open(filename, mode="w", newline="", encoding="utf-8") as csvfile:
-        fieldnames = ["sku", "brand", "name", "image", "description", "packaging"]
+        fieldnames = ["sku", "brand", "name", "image", "description", "packaging", "category"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
 
         writer.writeheader()
