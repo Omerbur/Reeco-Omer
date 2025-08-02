@@ -1,4 +1,3 @@
-import asyncio
 import re
 
 async def scrape_product_details(context, url, sku):
@@ -8,32 +7,19 @@ async def scrape_product_details(context, url, sku):
 
     print(f"[INFO] Scraping product {sku} -> {url}")
 
-    # Expand description if possible
-    read_more_btn = await page.query_selector("button[data-id='ellipsis-read-more-button']")
-    if read_more_btn:
-        await read_more_btn.click()
-        await asyncio.sleep(0.3)
+    # Scrape directly from description-detail-wrapper
+    description_element = await page.query_selector("div.description-detail-wrapper")
 
-    # Always try the full description first
-    description_element = await page.query_selector(
-        "div[data-id='product_description_section'] div.description-detail-wrapper:not(.LinesEllipsis)"
-    )
-    
     if description_element:
         description = await description_element.inner_text()
-        print(f"[INFO] SKU {sku}: Full description found.")
+        print(f"[INFO] SKU {sku}: Scraped description from description-detail-wrapper.")
     else:
-        # Fallback: scrape truncated text (LinesEllipsis)
-        print(f"[WARN] SKU {sku}: Full description not found. Using truncated text.")
-        fallback_element = await page.query_selector(
-            "div[data-id='product_description_text']"
-        )
-        description = await fallback_element.inner_text() if fallback_element else ""
+        print(f"[WARN] SKU {sku}: Description element not found.")
+        description = ""
 
-    # Clean description
     description = re.sub(r"\s+", " ", description).strip()
 
-    # Scrape other product info
+    # Other product data
     brand = await page.inner_text("button[data-id='product_brand_link']")
     name = await page.inner_text("div[data-id='product_name']")
     image = await page.get_attribute("img[data-id='main-product-img-v2']", "src")

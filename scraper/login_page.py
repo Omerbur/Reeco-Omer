@@ -1,17 +1,14 @@
 from playwright.async_api import async_playwright
 import asyncio
-from scraper.utils import get_random_user_agent
 
-async def init_browser():
-    """Initialize WebKit browser, context, and page with rotating user-agent."""
+async def init_browser(user_agent):
+    """Initialize WebKit browser, context, and page with user agent."""
     playwright = await async_playwright().start()
-    user_agent = get_random_user_agent()
-    print(f"[INFO] Launching WebKit with User-Agent: {user_agent}")
-
     browser = await playwright.webkit.launch(headless=False)
     context = await browser.new_context(user_agent=user_agent)
     page = await context.new_page()
     return browser, context, page
+
 
 async def login_as_guest(page, catalog_url):
     """Handles the guest login flow on the Sysco site."""
