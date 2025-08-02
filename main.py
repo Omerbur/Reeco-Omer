@@ -1,34 +1,58 @@
 import asyncio
-from playwright.async_api import async_playwright
-from scraper.utils import get_random_user_agent
-from scraper.login_page import login_as_guest
-from scraper.catalog_page import scrape_catalog_page
+from scraper.login_page import init_browser, login_as_guest
+from scraper.catalog_page import navigate_to_category, collect_skus
+from scraper.pagination import paginate_and_collect_skus
 from scraper.product_page import scrape_product_details
+from scraper.exporter import export_to_csv
+
+CATALOG_URL = "https://shop.sysco.com/app/catalog"
 
 async def run_scraper():
-    async with async_playwright() as p:
-        print("[INFO] Starting scraper with WebKit...")
-        browser = await p.webkit.launch(headless=False, slow_mo=300)
-        context = await browser.new_context(user_agent=get_random_user_agent())
-        page = await context.new_page()
+    print("[INFO] Starting scraper with WebKit...")
+    browser, context, page = await init_browser()
 
-        await page.goto("https://shop.sysco.com/app/catalog")
+    try:
+        # Login
+        await login_as_guest(page, CATALOG_URL)
 
-        # Login flow
-        await login_as_guest(page)
+        # Go to category and collect initial SKUs
+        await navigate_to_category(page, "Meat & Seafood")
+        skus = await collect_skus(page)
+        print(f"[INFO] Found initial {len(skus)} SKUs")
 
-        # Go to catalog and get SKUs
-        skus = await scrape_catalog_page(page)
-        if not skus:
-            print("[ERROR] No SKUs found, stopping...")
-            await browser.close()
-            return
+        results = []
 
-        # Scrape first product for test
-        product_data = await scrape_product_details(page, skus[0])
-        print("[INFO] Sample product:", product_data)
+        # Run pagination concurrently while scraping products
+        async def paginate_task():
+            await paginate_and_collect_skus(page, skus, max_pages=2)
 
+        async def scrape_products_task():
+            processed = set()
+            while True:
+                if not skus:
+                    await asyncio.sleep(0.5)
+                    continue
+
+                for sku in list(skus):
+                    if sku in processed:
+                        continue
+                    url = f"https://shop.sysco.com/app/product-details/opco/052/product/{sku}?seller_id=USBL"
+                    data = await scrape_product_details(context, url, sku)
+                    results.append(data)
+                    processed.add(sku)
+
+                if len(processed) >= len(skus):
+                    break
+                await asyncio.sleep(0.2)
+
+        await asyncio.gather(paginate_task(), scrape_products_task())
+
+        print(f"[INFO] Scraped {len(results)} products total.")
+        export_to_csv(results)
+
+    finally:
         await browser.close()
+
 
 if __name__ == "__main__":
     asyncio.run(run_scraper())
