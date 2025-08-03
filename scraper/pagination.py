@@ -1,22 +1,36 @@
 import asyncio
+import math
 
-async def paginate_and_collect_skus(page, collected_skus, max_pages=5):
-    """
-    Paginate through category pages and collect new SKUs.
-    """
-    pages_scraped = 1
-    print(f"[INFO] Pagination started. Max pages: {max_pages}")
+async def get_total_pages(page):
+    """Get total number of pages in category."""
+    await asyncio.sleep(1)
+    total_results_element = await page.query_selector(
+        "span[data-id='ss-searchPage-header-label-searchResultsTotalText']"
+    )
+    if not total_results_element:
+        print("[WARN] Could not find total results element, assuming 1 page")
+        return 1
 
-    while pages_scraped < max_pages:
+    text = await total_results_element.inner_text()
+    total_results = int("".join(filter(str.isdigit, text)))
+    pages = math.ceil(total_results / 24)
+    print(f"[INFO] Total results: {total_results} -> {pages} pages")
+    return pages
+
+
+async def paginate_chunk(page, collected_skus, start_page, end_page):
+    """Paginate only through a specific chunk of pages."""
+    current_page = start_page
+    while current_page < end_page:
         await asyncio.sleep(1)
 
         next_button = await page.query_selector("button[data-id='button_page_next']")
         if not next_button:
-            print("[INFO] No next page button found. Ending pagination.")
+            print(f"[INFO] No next page found at page {current_page}, stopping chunk.")
             break
 
-        print(f"[INFO] Moving to next page: {pages_scraped + 1}")
         await next_button.click()
+        current_page += 1
         await page.wait_for_selector("div.catalog-cards-wrapper div.product-card-container", timeout=15000)
 
         elements = await page.query_selector_all("div.catalog-cards-wrapper div.product-card-container")
@@ -25,9 +39,6 @@ async def paginate_and_collect_skus(page, collected_skus, max_pages=5):
             sku = (await sku_span.inner_text()).strip()
             if sku not in collected_skus:
                 collected_skus.append(sku)
-                print(f"[INFO] Added SKU: {sku}")
+                print(f"[INFO] Added SKU: {sku} (page {current_page})")
 
-        pages_scraped += 1
-
-    print(f"[INFO] Pagination finished. Total SKUs: {len(collected_skus)}")
     return collected_skus

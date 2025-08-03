@@ -1,5 +1,6 @@
 from playwright.async_api import async_playwright
 import asyncio
+from scraper.utils import get_random_zip_code
 
 async def init_browser(user_agent):
     """Initialize WebKit browser, context, and page with user agent."""
@@ -11,7 +12,7 @@ async def init_browser(user_agent):
     page = await context.new_page()
     return browser, context, page
 
-
+CATALOG_URL = "https://shop.sysco.com/app/catalog"
 async def login_flow(page, catalog_url, silent=False):
     """
     Full login flow:
@@ -34,7 +35,7 @@ async def login_flow(page, catalog_url, silent=False):
             await btn.click()
 
             await page.wait_for_selector("input[data-id='initial_zipcode_modal_input']", timeout=15000)
-            await page.fill("input[data-id='initial_zipcode_modal_input']", "97229")
+            await page.fill("input[data-id='initial_zipcode_modal_input']", get_random_zip_code())
 
             await page.click("button[data-id='initial_zipcode_modal_start_shopping_button']")
             print("[INFO] Entered ZIP and clicked Start Shopping")

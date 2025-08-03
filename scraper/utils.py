@@ -39,5 +39,8 @@ ZIP_CODES = [
 def get_random_user_agent():
     return random.choice(USER_AGENTS)
 
+def get_random_zip_code():
+    return random.choice(ZIP_CODES)
+
 async def random_delay(min_delay=1, max_delay=3):
     await asyncio.sleep(random.uniform(min_delay, max_delay))
