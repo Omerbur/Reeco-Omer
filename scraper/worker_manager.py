@@ -1,4 +1,5 @@
 import asyncio
+import csv
 from scraper.login_page import init_browser, login_flow
 from scraper.pagination import get_total_pages
 from scraper.catalog_service import catalog_worker
@@ -20,13 +21,28 @@ CATEGORIES = [
     "https://shop.sysco.com/app/catalog?BUSINESS_CENTER_ID=syy_cust_tax_produce"
 ]
 
+def export_failed_skus(failed_skus, filename="failed_skus.csv"):
+    """Export failed SKUs to a separate CSV."""
+    if not failed_skus:
+        print("[INFO] No failed SKUs to export.")
+        return
+
+    with open(filename, mode="w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["sku"])
+        for sku in failed_skus:
+            writer.writerow([sku])
+
+    print(f"[INFO] Failed SKUs successfully exported to {filename}")
+
+
 async def run_scraper():
     queue = asyncio.Queue()
     failed_queue = asyncio.Queue()
     results = []
     catalog_done = asyncio.Event()
 
-    # Step 1: Iterate through categories
+    # Step 1: Iterate through categories and scrape SKUs
     for category_url in CATEGORIES:
         print(f"\n[INFO] Starting category: {category_url}")
         user_agent = get_random_user_agent()
@@ -48,7 +64,6 @@ async def run_scraper():
         await asyncio.gather(*catalog_tasks)
         print(f"[INFO] Finished category {category_url}, total SKUs in queue so far: {queue.qsize()}")
 
-    # Signal catalog done for product workers
     catalog_done.set()
 
     # Step 2: Launch product workers
@@ -59,17 +74,19 @@ async def run_scraper():
     ]
     await queue.join()
 
+    # Export products after queue is done
+    export_to_csv(results, "products.csv")
+    print(f"[INFO] Exported {len(results)} products to products.csv")
+
     # Stop workers
     for _ in workers:
         await queue.put(None)
     await asyncio.gather(*workers)
 
-    # Step 3: Retry failed SKUs if needed
-    if not failed_queue.empty():
-        print(f"[INFO] Retrying {failed_queue.qsize()} failed SKUs...")
-        while not failed_queue.empty():
-            await queue.put(await failed_queue.get())
-        await queue.join()
+    # Step 3: Retry failed SKUs and export them
+    failed_skus = []
+    while not failed_queue.empty():
+        failed_skus.append(await failed_queue.get())
 
-    export_to_csv(results, "products.csv")
-    print(f"[INFO] Scraping completed. {len(results)} products scraped.")
+    export_failed_skus(failed_skus, "failed_skus.csv")
+    print(f"[INFO] Scraping completed. {len(results)} products scraped, {len(failed_skus)} failed SKUs.")
