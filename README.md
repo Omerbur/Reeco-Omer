@@ -85,7 +85,7 @@ https://shop.sysco.com/app/catalog?BUSINESS_CENTER_ID=syy_cust_tax_meatseafood
  - Calculate total pages.
  - Start multiple **catalog workers** (10 pages each) to gather SKUs.
 2. After all categories finish:
- - Start **8 product workers** to scrape product details. (8 are ideal, more start to overload my machine)
+ - Start **15 product workers** to scrape product details. (15 work well, trying to add more might start to overload my machine)
 3. Retry failed SKUs.
 4. Export all data to CSV.
 
