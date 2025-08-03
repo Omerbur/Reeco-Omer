@@ -4,7 +4,13 @@ from scraper.product_page import scrape_product_details
 
 CATALOG_URL = "https://shop.sysco.com/app/catalog?BUSINESS_CENTER_ID=syy_cust_tax_meatseafood"
 
-async def product_worker(worker_id: int, queue: asyncio.Queue, failed_queue: asyncio.Queue, results: list, catalog_done: asyncio.Event):
+async def product_worker(
+    worker_id: int,
+    queue: asyncio.Queue,
+    failed_queue: asyncio.Queue,
+    results: list,
+    delay_before_scraping: float = 0.0  # Add delay param (default = no delay)
+):
     """Scrape products from the queue."""
     from scraper.utils import get_random_user_agent
 
@@ -25,7 +31,7 @@ async def product_worker(worker_id: int, queue: asyncio.Queue, failed_queue: asy
                 if found:
                     idle_time = 0
 
-                # Kill worker if idle for 10s and no continue-as-guest
+                # Kill worker if idle for 10s
                 if idle_time >= 10:
                     print(f"[WORKER-{worker_id}] Idle for too long, killing self...")
                     break
@@ -39,6 +45,10 @@ async def product_worker(worker_id: int, queue: asyncio.Queue, failed_queue: asy
 
             url = f"https://shop.sysco.com/app/product-details/opco/052/product/{sku}?seller_id=USBL"
             try:
+                # Delay if set (for retrying failed SKUs)
+                if delay_before_scraping > 0:
+                    await asyncio.sleep(delay_before_scraping)
+
                 data = await scrape_product_details(context, url, sku)
                 results.append(data)
 
@@ -46,8 +56,11 @@ async def product_worker(worker_id: int, queue: asyncio.Queue, failed_queue: asy
                     print(f"[INFO] {len(results)} products scraped...")
 
                 print(f"[WORKER-{worker_id}] Scraped SKU: {sku}")
+
             except Exception as e:
-                print(f"[ERROR] Worker-{worker_id}: Failed SKU {sku}, moving to failed queue. Error: {e}")
+                print(
+                    f"[ERROR] Worker-{worker_id}: Failed SKU {sku}, moving to failed queue. Error: {e}"
+                )
                 await failed_queue.put(sku)
             finally:
                 queue.task_done()
